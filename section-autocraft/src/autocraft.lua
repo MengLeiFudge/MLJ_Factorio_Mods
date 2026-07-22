@@ -3,6 +3,8 @@ local constants = require("constants")
 local autocraft = {}
 
 local AUTOCRAFT_MAX_CRAFT_BATCH_SIZE = 10000
+local AUTOCRAFT_MAX_MISSING_CRAFTS = 100
+local AUTOCRAFT_MISSING_SECTION_COOLDOWN_TICKS = 60
 local AUTOCRAFT_NO_CRAFTABLE_RETRY_TICKS = 180
 local AUTOCRAFT_PERFORMANCE_PROFILE_ENABLED = false
 local DEFAULT_QUALITY_NAME = "normal"
@@ -941,10 +943,21 @@ local function get_crafting_queue_item_counts(player)
     return {}
   end
 
+  local data = storage.data and storage.data[player.index]
+  local active_recipe = data and data.active_recipe_name
+
   local queued_counts = {}
   for _, queue_item in pairs(crafting_queue) do
     if not queue_item.prerequisite then
       local recipe_name = type(queue_item.recipe) == "string" and queue_item.recipe or queue_item.recipe.name
+
+      -- Exclude the currently active crafting item to prevent double-counting:
+      -- the queue still contains the item being crafted, but it hasn't been
+      -- produced yet, so counting it as "available" inflates the supply.
+      if active_recipe and recipe_name == active_recipe then
+        goto continue_queue
+      end
+
       local recipe = player.force.recipes[recipe_name]
 
       if recipe then
@@ -957,6 +970,7 @@ local function get_crafting_queue_item_counts(player)
         end
       end
     end
+    ::continue_queue::
   end
 
   return queued_counts
@@ -1119,100 +1133,58 @@ local function get_craft_count(player, recipe_name, recipe, item_request)
   return math.min(crafts_needed, craftable_count, AUTOCRAFT_MAX_CRAFT_BATCH_SIZE)
 end
 
-local function consume_available_item_count(available_items, item_key, needed_count)
-  local available_count = available_items[item_key] or 0
-  local consumed_count = math.min(available_count, needed_count)
-  available_items[item_key] = available_count - consumed_count
-  return consumed_count
+local function snapshot_backpack(player)
+  local inv = player.get_main_inventory()
+  if not inv or not inv.valid then return {} end
+  local bp = {}
+  for _, item in pairs(inv.get_contents()) do
+    local key = make_item_key(item.name, normalise_quality_name(item.quality))
+    bp[key] = (bp[key] or 0) + item.count
+  end
+  return bp
 end
 
-local function accumulate_missing_materials(
-  player,
-  item_name,
-  quality_name,
-  required_count,
-  requests,
-  visiting,
-  logistic_network,
-  available_inventory_counts,
-  available_network_counts
-)
-  if required_count <= 0 then
-    return
-  end
-
+local function resolve_ingredient(player, item_name, quality_name, need_count, requests, backpack, visiting)
+  if need_count <= 0 then return end
   quality_name = normalise_quality_name(quality_name)
   local item_key = make_item_key(item_name, quality_name)
-  local request = requests[item_key]
-  if request then
-    request.count = request.count + required_count
-  else
-    requests[item_key] = {
-      name = item_name,
-      quality = quality_name,
-      count = required_count,
-    }
-  end
 
-  if available_inventory_counts[item_key] == nil then
-    available_inventory_counts[item_key] = player.get_item_count(item_count_filter(item_name, quality_name))
-  end
-
-  local inventory_count = consume_available_item_count(available_inventory_counts, item_key, required_count)
-  local missing_count = required_count - inventory_count
-  if missing_count <= 0 then
-    return
-  end
-
-  if available_network_counts[item_key] == nil then
-    available_network_counts[item_key] = logistic_network and logistic_network.get_item_count(item_with_quality_id(item_name, quality_name)) or 0
-  end
-
-  local logistic_network_count = consume_available_item_count(available_network_counts, item_key, missing_count)
-  local unresolved_count = missing_count - logistic_network_count
-  if unresolved_count <= 0 then
-    return
-  end
-
-  if visiting[item_key] then
-    return
-  end
-
-  local recipe_name = recipe_for_hand_craftable_item(player, item_name, quality_name)
-  if not recipe_name then
-    return
-  end
-
-  local recipe = player.force.recipes[recipe_name]
-  if not recipe then
-    return
-  end
-
+  if visiting[item_key] then return end
   visiting[item_key] = true
-  local crafts_needed = math.ceil(unresolved_count / get_recipe_output_amount(recipe, item_name))
 
-  for _, ingredient in pairs(recipe.ingredients) do
+  -- Deduct backpack: use what you have, request only the deficit
+  local in_bp = backpack[item_key] or 0
+  local consumed = math.min(in_bp, need_count)
+  backpack[item_key] = in_bp - consumed
+  local deficit = need_count - consumed
+  if deficit <= 0 then visiting[item_key] = nil; return end
+
+  -- Can hand-craft? → recurse into sub-ingredients (degrade)
+  local hand_recipe_name = recipe_for_hand_craftable_item(player, item_name, quality_name)
+  if not hand_recipe_name then
+    -- Cannot hand-craft → request directly
+    local ex = requests[item_key]
+    if ex then ex.count = ex.count + deficit
+    else requests[item_key] = { name = item_name, quality = quality_name, count = deficit } end
+    visiting[item_key] = nil
+    return
+  end
+
+  local hand_recipe = player.force.recipes[hand_recipe_name]
+  if not hand_recipe then
+    local ex = requests[item_key]
+    if ex then ex.count = ex.count + deficit
+    else requests[item_key] = { name = item_name, quality = quality_name, count = deficit } end
+    visiting[item_key] = nil
+    return
+  end
+
+  local output_per_craft = get_recipe_output_amount(hand_recipe, item_name)
+  local crafts_needed = math.min(AUTOCRAFT_MAX_MISSING_CRAFTS, math.ceil(deficit / output_per_craft))
+
+  for _, ingredient in pairs(hand_recipe.ingredients) do
     if ingredient.type == "item" then
-      local ingredient_key = make_item_key(ingredient.name, quality_name)
-      if available_inventory_counts[ingredient_key] == nil then
-        available_inventory_counts[ingredient_key] = player.get_item_count(item_count_filter(ingredient.name, quality_name))
-      end
-
-      -- 所有递归分支共享同一份背包库存，避免同一个材料被重复抵扣。
-      local required_count = ingredient.amount * crafts_needed
-      if required_count > 0 then
-        accumulate_missing_materials(
-          player,
-          ingredient.name,
-          quality_name,
-          required_count,
-          requests,
-          visiting,
-          logistic_network,
-          available_inventory_counts,
-          available_network_counts
-        )
-      end
+      resolve_ingredient(player, ingredient.name, quality_name, ingredient.amount * crafts_needed, requests, backpack, visiting)
     end
   end
 
@@ -1224,6 +1196,12 @@ local function update_missing_materials_section(player, target_item_name, target
   if not autocraft.is_enabled(player) then
     remove_missing_materials_section(player)
     autocraft.record_profile("update_missing_materials_section", profiler, { disabled = 1 })
+    return nil
+  end
+
+  storage.missing_section_cooldowns = storage.missing_section_cooldowns or {}
+  if game.tick < (storage.missing_section_cooldowns[player.index] or 0) then
+    autocraft.record_profile("update_missing_materials_section", profiler, { cooldown = 1 })
     return nil
   end
 
@@ -1240,59 +1218,28 @@ local function update_missing_materials_section(player, target_item_name, target
     return nil
   end
 
-  local logistic_point = player.get_requester_point()
-  local logistic_network = nil
-  if logistic_point and logistic_point.valid then
-    local candidate_network = logistic_point.logistic_network
-    if candidate_network and candidate_network.valid then
-      logistic_network = candidate_network
-    end
-  end
-
-  local missing_requests = {}
-  local has_missing_materials = false
-  local available_inventory_counts = {}
-  local available_network_counts = {}
   target_quality_name = normalise_quality_name(target_quality_name)
-  local crafts_needed = math.ceil(target_missing_count / get_recipe_output_amount(recipe, target_item_name))
-  local top_level_ingredients = 0
+  local crafts_needed = math.min(AUTOCRAFT_MAX_MISSING_CRAFTS, math.ceil(target_missing_count / get_recipe_output_amount(recipe, target_item_name)))
+  local requests = {}
+  local backpack = snapshot_backpack(player)
+  local visiting = {}
 
   for _, ingredient in pairs(recipe.ingredients) do
     if ingredient.type == "item" then
-      top_level_ingredients = top_level_ingredients + 1
-      local required_count = ingredient.amount * crafts_needed
-      if required_count > 0 then
-        has_missing_materials = true
-        accumulate_missing_materials(
-          player,
-          ingredient.name,
-          target_quality_name,
-          required_count,
-          missing_requests,
-          {},
-          logistic_network,
-          available_inventory_counts,
-          available_network_counts
-        )
-      end
+      resolve_ingredient(player, ingredient.name, target_quality_name, ingredient.amount * crafts_needed, requests, backpack, visiting)
     end
   end
 
-  if not has_missing_materials then
+  if next(requests) == nil then
     remove_missing_materials_section(player)
-    autocraft.record_profile("update_missing_materials_section", profiler, {
-      no_missing_materials = 1,
-      top_level_ingredients = top_level_ingredients,
-    })
+    autocraft.record_profile("update_missing_materials_section", profiler, { no_missing_materials = 1 })
     return nil
   end
 
-  write_missing_materials_section(player, missing_requests)
-  autocraft.record_profile("update_missing_materials_section", profiler, {
-    missing_request_kinds = table_size(missing_requests),
-    top_level_ingredients = top_level_ingredients,
-  })
-  return missing_requests
+  write_missing_materials_section(player, requests)
+  storage.missing_section_cooldowns[player.index] = game.tick + AUTOCRAFT_MISSING_SECTION_COOLDOWN_TICKS
+  autocraft.record_profile("update_missing_materials_section", profiler, { missing_request_kinds = table_size(requests) })
+  return requests
 end
 
 local function sort_item_requests(item_requests)

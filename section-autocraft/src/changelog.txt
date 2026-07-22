@@ -1,3 +1,16 @@
+--------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: 2026-06-21
+  Changes:
+    - [Change] Replaced recursive accumulation model with resolve_ingredient tiered-degrade logic.
+    - [Fix] Material request cap at 100 crafts per level.
+    - [Fix] Backpack snapshot shared across recursion.
+    - [Fix] Cycle detection for hand-craftable recipe loops.
+    - [Fix] Fluid ingredients excluded from requests.
+    - [Fix] Crafting queue double-counting of active recipe output.
+    - [Fix] Missing section cooldown to prevent oscillation.
+--------------------------------------------------------------------------------------------------
+
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.7
 Date: 2026-06-28
