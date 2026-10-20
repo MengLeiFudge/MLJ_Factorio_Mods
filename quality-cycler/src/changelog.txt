@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.0.2
+Version: 1.1.0
 Date: 2026-06-28
   Changes:
     - Declared Factorio 2.1 compatibility.
@@ -14,14 +14,14 @@ Date: 2026-05-17
   Features:
     - Added a per-player comma-separated ignore list setting for prototype names that should not be changed.
 ---------------------------------------------------------------------------------------------------
-Version: 0.1.0
-Date: 2026-05-10
-  Features:
-    - Added upgrade-planner quality cycling with quality up/down controls.
----------------------------------------------------------------------------------------------------
 Version: 1.0.0
 Date: 2026-05-11
   Features:
     - Added player-facing blueprint, blueprint book, and upgrade planner quality cycling.
     - Skipped targets whose properties are not affected by quality.
     - Added a player-facing README for release.
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-05-10
+  Features:
+    - Added upgrade-planner quality cycling with quality up/down controls.

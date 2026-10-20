@@ -1,4 +1,4 @@
---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 Version: 1.1.0
 Date: 2026-06-21
   Changes:
@@ -9,12 +9,6 @@ Date: 2026-06-21
     - [Fix] Fluid ingredients excluded from requests.
     - [Fix] Crafting queue double-counting of active recipe output.
     - [Fix] Missing section cooldown to prevent oscillation.
---------------------------------------------------------------------------------------------------
-
----------------------------------------------------------------------------------------------------
-Version: 1.0.7
-Date: 2026-06-28
-  Changes:
     - 声明支持 Factorio 2.1。
     - Updated missing-material logistics section writes for the Factorio 2.1 LuaLogisticSection.set_slot signature.
 ---------------------------------------------------------------------------------------------------

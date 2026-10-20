@@ -1,10 +1,10 @@
 {
     "name": "quality-cycler",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "factorio_version": "2.1",
     "title": "Blueprint & Upgrade Planner Quality Cycler",
     "author": "MengLei",
-    "description": "Cycle qualities inside blueprints, blueprint books, and upgrade planners with the controls bound to quality up/down.\n使用控制设置里绑定的品质上/下切换操作快速修改蓝图、蓝图册和绿图中的品质。",
+    "description": "Cycle qualities inside blueprints, blueprint books, and upgrade planners with the controls bound to quality up/down.",
     "contact": "https://github.com/MengLeiFudge/MLJ_Factorio_Mods",
     "homepage": "https://github.com/MengLeiFudge/MLJ_Factorio_Mods",
     "dependencies": [

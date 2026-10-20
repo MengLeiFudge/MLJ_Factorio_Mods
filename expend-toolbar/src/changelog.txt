@@ -1,14 +1,10 @@
 ---------------------------------------------------------------------------------------------------
-Version: 1.0.1
-Date: 2026-06-28
-  Changes:
-    - Declared Factorio 2.1 compatibility and raised the base dependency to 2.1.
----------------------------------------------------------------------------------------------------
 Version: 1.0.0
-Date: 25. 05. 2026
+Date: 2026-06-28
   Features:
     - Added movable custom item bars with dynamic pages, live inventory counts, blueprint-aware slots, and quality controls.
   Changes:
+    - Declared Factorio 2.1 compatibility and raised the base dependency to 2.1.
     - Started the standalone Expend Toolbar changelog.
   Bugfixes:
     - Improved remote starmap hiding, cursor-record slot handling, and normal-view item pickup behavior.

@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT / "ModZips"
 MOD_PORTAL_URL = "https://mods.factorio.com"
 TOKEN_ENV = "FACTORIO_MOD_PORTAL_TOKEN"
+CONFIG_TOKEN_KEY = "factorio_mod_portal_token"
+DEFAULT_CONFIG_PATH = ROOT / "publish_mods.config.json"
 USER_AGENT = "MLJ-Factorio-Mod-Publisher/1.0"
 
 ACTION_SKIP = "skip"
@@ -156,8 +158,18 @@ class ModPortalClient:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-    if args.execute and not os.environ.get(TOKEN_ENV):
-        print(f"ERROR: --execute requires {TOKEN_ENV}.", file=sys.stderr)
+    try:
+        token = resolve_publish_token(args.config_file)
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    if args.execute and not token:
+        print(
+            f"ERROR: --execute requires {TOKEN_ENV} or a non-empty "
+            f"'{CONFIG_TOKEN_KEY}' in {args.config_file}.",
+            file=sys.stderr,
+        )
         return 1
 
     dirty_paths = get_git_dirty_paths(args.root)
@@ -200,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     create_fields = build_create_fields(args)
-    token = os.environ[TOKEN_ENV]
+    assert token is not None
     return execute_publish_actions(publishable, client, token, create_fields)
 
 
@@ -219,11 +231,45 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--create-category", help="Mod Portal category sent only with --create uploads.")
     parser.add_argument("--create-license", help="Mod Portal license id sent only with --create uploads.")
     parser.add_argument("--create-source-url", help="Source URL sent only with --create uploads.")
+    parser.add_argument(
+        "--config-file",
+        type=Path,
+        default=DEFAULT_CONFIG_PATH,
+        help=f"Local JSON config containing '{CONFIG_TOKEN_KEY}'. {TOKEN_ENV} takes precedence.",
+    )
     parser.add_argument("--root", type=Path, default=ROOT, help=argparse.SUPPRESS)
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR, help=argparse.SUPPRESS)
     parser.add_argument("--mod-portal-url", default=MOD_PORTAL_URL, help=argparse.SUPPRESS)
     parser.add_argument("--timeout", type=float, default=60.0, help=argparse.SUPPRESS)
     return parser.parse_args(argv)
+
+
+def resolve_publish_token(config_path: Path) -> str | None:
+    env_token = os.environ.get(TOKEN_ENV)
+    if env_token and env_token.strip():
+        return env_token.strip()
+
+    if not config_path.is_file():
+        return None
+
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"{config_path}: invalid JSON at line {exc.lineno}, column {exc.colno}"
+        ) from exc
+
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"{config_path}: config root must be a JSON object")
+
+    token = payload.get(CONFIG_TOKEN_KEY)
+    if token is None:
+        return None
+    if not isinstance(token, str):
+        raise ValueError(f"{config_path}: '{CONFIG_TOKEN_KEY}' must be a string")
+
+    token = token.strip()
+    return token or None
 
 
 def select_projects(

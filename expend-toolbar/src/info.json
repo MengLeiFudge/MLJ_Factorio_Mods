@@ -2,10 +2,10 @@
 	"name": "expend-toolbar",
 	"title": "Expend Toolbar",
 	"author": "MengLei",
-	"version": "1.0.1",
+	"version": "1.0.0",
 	"factorio_version": "2.1",
 	"dependencies": [
 		"base >= 2.1"
 	],
-	"description": "Create movable custom item bars with dynamic pages, live inventory counts, blueprint-aware slots, and quality controls. / 创建可移动的自定义物品栏，支持动态页面、实时库存数量、蓝图感知槽位和品质切换。"
+	"description": "Create movable custom item bars with dynamic pages, live inventory counts, blueprint-aware slots, and quality controls."
 }

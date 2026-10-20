@@ -171,9 +171,10 @@ dist
 # IntelliJ based IDEs
 .idea
 
-# Python cache and packaging output
+# Python cache, packaging output, and local publishing credentials
 __pycache__/
 ModZips/
+publish_mods.config.json
 
 # Finder (MacOS) folder config
 .DS_Store

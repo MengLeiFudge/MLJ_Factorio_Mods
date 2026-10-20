@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-This mod is a Lua-first Factorio 2.0 mod that lets players create movable custom toolbars for items, tools, inventory counts, and remote-view access.
+This mod is a Lua-first Factorio 2.1 mod that lets players create movable custom toolbars for items, tools, inventory counts, and remote-view access.
 
 ## WHERE TO LOOK
 
@@ -41,10 +41,9 @@ This mod is a Lua-first Factorio 2.0 mod that lets players create movable custom
 - Do not count personal-view side inventories in the slot count overlay unless the player-facing behavior is intentionally changed and the README is updated.
 - Do not reintroduce an inner `src/src/` tree. `src/` is already the Factorio package root; Lua modules should be nested directly below it by logical domain.
 - Do not reintroduce one-class-per-file component trees for toolbar buttons, slots, events, or inventory wrappers.
-- Do not put tests or investigation scripts inside `src/`; use root `tests/` for durable guards and `.codex/` for temporary probes.
+- Do not add tests or investigation scripts inside `src/`. Keep temporary investigation scripts under `.codex/` and archive or remove them before handoff.
 
 ## VERIFICATION
 
-- Run the root packaging guard after structure or documentation changes: `python3 tests/verify_pack_mods_ignores_non_runtime_files.py`.
 - Run `python3 pack_mods.py` after source or package-identity changes and confirm `ModZips/expend-toolbar_1.0.0.zip` is produced.
 - For refresh bugs, inspect `stock.lua`, `panel.lua`, and `runtime.lua`. Player inventory/controller/surface events should call the immediate `refresh_now` path; the dirty repaint path is reserved for polling-only cases such as remote view or enabled logistic tooltip data.

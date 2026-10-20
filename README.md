@@ -19,6 +19,7 @@
 | 目录 | 说明 |
 |------|------|
 | `tools/blueprint_lab/` | 离线蓝图分析和生成工具；用于解码蓝图字符串、扫描本地蓝图语料、提取紧凑布局经验，并生成第一版矩形黑盒种子蓝图 |
+| `tools/update_factorio_mods.py` | 本机模组并行更新工具；无需启动游戏即可按当前 Factorio 版本下载兼容最新版并清理旧 zip |
 
 ## 本地参考代码
 
@@ -81,6 +82,32 @@ python3 pack_mods.py
 - 如果该目录没有 `{info.name}_*.zip`，脚本会复制本轮打包生成的 `{info.name}_{info.version}/` 文件夹。
 - 不要直接把源码目录 `src/` 放进 Factorio mods 目录。
 
+## 本机模组并行更新
+
+关闭 Factorio 后，在项目根目录运行：
+
+```bash
+python3 tools/update_factorio_mods.py
+```
+
+Windows Python 也可以直接运行：
+
+```powershell
+py tools\update_factorio_mods.py
+```
+
+只查看更新计划而不修改文件：
+
+```bash
+python3 tools/update_factorio_mods.py --dry-run
+```
+
+工具会自动发现 Factorio 用户数据目录与当前游戏版本，读取 `player-data.json` 中已有的 Mod Portal 登录凭据，并默认使用 8 路并发下载。可用 `--workers 1..32` 调整并发数，也可用 `--user-data-dir` 和 `--factorio-version` 显式覆盖自动检测结果。
+
+所有新包会先下载到用户数据目录下的可恢复缓存，并通过 Mod Portal SHA-1、zip 结构、包内 `info.json` 和必需依赖检查。下载中断后再次运行会复用已校验完成的包，并用 HTTP Range 继续未完成分片；全部成功后缓存自动清理。只有目标包验证并安装成功后，工具才删除同名旧版 zip；下载失败、同版本本地改包、非标准 zip、官网无当前兼容版本的模组和解压调试目录都会保留。工具不会修改模组启用状态，也不会自动安装本机原本没有的依赖。
+
+这是使用 Factorio Mod Portal 内部下载 API 的非官方社区工具，与 Wube Software 无关联。请勿输出、提交或分享 `player-data.json` 中的 `service-token`。
+
 ## 发布
 
 发布到 Factorio Mod Portal 使用独立脚本，平常打包不会触发官网发布：
@@ -92,7 +119,21 @@ python3 publish_mods.py --mod quality-cycler --dry-run
 
 `publish_mods.py` 会读取本地 `<mod>/src/info.json`，查询 Mod Portal 的当前 release 列表，并比对本地版本和远端最新版本。本地版本等于或低于远端版本时会跳过；本地版本更高时，会检查 `ModZips/{info.name}_{info.version}.zip` 并在 dry-run 输出将要发布的 release。
 
-真实发布必须显式使用 `--execute`，并通过环境变量提供 API key：
+真实发布必须显式使用 `--execute`。默认从已忽略的本地配置 `publish_mods.config.json` 读取 API key；环境变量 `FACTORIO_MOD_PORTAL_TOKEN` 非空时优先使用环境变量。
+
+首次配置时可从示例复制：
+
+```bash
+cp publish_mods.config.example.json publish_mods.config.json
+```
+
+然后只在本地配置中填写 `factorio_mod_portal_token`，再执行：
+
+```bash
+python3 publish_mods.py --mod quality-cycler --execute
+```
+
+也可以继续只用环境变量：
 
 ```bash
 FACTORIO_MOD_PORTAL_TOKEN=... python3 publish_mods.py --mod quality-cycler --execute
@@ -101,28 +142,27 @@ FACTORIO_MOD_PORTAL_TOKEN=... python3 publish_mods.py --mod quality-cycler --exe
 首次发布一个官网还不存在的模组时，需要额外显式允许创建：
 
 ```bash
-FACTORIO_MOD_PORTAL_TOKEN=... python3 publish_mods.py --mod new-mod --execute --create
+python3 publish_mods.py --mod new-mod --execute --create
 ```
 
 注意事项：
 
 - `publish_mods.py` 不会自动调用 `pack_mods.py`；发布前先确认对应 zip 已经由打包脚本生成。
-- API key 只从 `FACTORIO_MOD_PORTAL_TOKEN` 读取，不要写进仓库文件。
+- API key 优先从 `FACTORIO_MOD_PORTAL_TOKEN` 读取，否则读取已忽略的 `publish_mods.config.json`；不要把真实 token 写入 example 或任何已跟踪文件。
+- 可用 `--config-file <path>` 指定其他本地 JSON 配置。
 - 默认 dry-run 只比对版本和检查本地 zip，不上传文件。
 - `--execute` 会调用 Factorio 官方 Mod Portal API；只有明确要发布时才运行。
 - 如果需要强制发布时工作区干净，可以加 `--require-clean`。
 
-## 打包验证
+## 打包检查
+
+需要生成并检查当前六个模组的压缩包时运行：
 
 ```bash
-python3 tests/verify_blueprint_lab.py
-python3 tests/verify_pack_mods_ignores_non_runtime_files.py
-python3 tests/verify_publish_mods.py
 python3 pack_mods.py
 ```
 
-守卫测试会确认蓝图工具的编码/生成入口可用，确认测试目录和仓库文档不会进入打包产物，并确认发布脚本默认只做 dry-run 且真实上传需要显式 `--execute` 与 API key。打包命令输出
-`Completed. Success: 6, Failed: 0` 时，表示当前 6 个模组都已成功生成 zip。
+本仓库不维护测试文件。打包命令输出 `Completed. Success: 6, Failed: 0` 时，表示当前 6 个模组都已成功生成 zip。
 
 ## Factorio 资料
 

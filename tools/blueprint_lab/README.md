@@ -349,8 +349,7 @@ next optimization target is therefore not "make product reach the boundary" but
 "compress proven machine-output lanes back down to the requested boundary
 contract without losing throughput or byproduct separation."
 
-The runtime validation command is a heavier final gate, not part of the normal
-unit regression guard. It writes a temporary scenario under the Factorio user
+The runtime validation command is an optional heavyweight audit, separate from the normal offline analysis workflow. It writes a temporary scenario under the Factorio user
 data directory, imports one blueprint string with `LuaItemStack.import_stack`,
 creates a generic surface or a Space Age space platform depending on blueprint
 tiles, and calls `LuaItemStack.build_blueprint`. If that returns zero entities,
@@ -478,7 +477,7 @@ The validator also logs `right_boundary_throughput_lane_window` and
 items by right-boundary belt position and transport-line index, so a near-miss
 can be diagnosed as a single dead lane, an imbalanced belt, or small gaps spread
 across all final lanes.
-Earlier probes are still useful as regression markers. The generated output has
+Earlier probes are still useful as comparison markers. The generated output has
 moved from `0/min` on a broken exact 3x2 candidate, to about `4.0-4.5k/min`
 after source-port fan-in, to about `5.3k/min` after filtered multi-inserter
 unloading on existing drop belts, and then to a `7539/min` 2400-tick summary
@@ -650,31 +649,31 @@ more rectangle spacing alone is not enough.
 Analyze a blueprint directory:
 
 ```bash
-python3 -m tools.blueprint_lab.analysis /mnt/d/Desktop/游戏/异星工厂/蓝图 --json-output .codex/tests/blueprint-corpus-summary.json --markdown-output .codex/tests/blueprint-corpus-report.md
+python3 -m tools.blueprint_lab.analysis /mnt/d/Desktop/游戏/异星工厂/蓝图 --json-output .codex/artifacts/blueprint-corpus-summary.json --markdown-output .codex/artifacts/blueprint-corpus-report.md
 ```
 
 Learn blueprint families and representative examples:
 
 ```bash
-python3 -m tools.blueprint_lab.learn /mnt/d/Desktop/游戏/异星工厂/蓝图 --json-output .codex/tests/blueprint-learning-summary.json --markdown-output .codex/tests/blueprint-learning-report.md
+python3 -m tools.blueprint_lab.learn /mnt/d/Desktop/游戏/异星工厂/蓝图 --json-output .codex/artifacts/blueprint-learning-summary.json --markdown-output .codex/artifacts/blueprint-learning-report.md
 ```
 
 Decompose learned black-box candidates:
 
 ```bash
-python3 -m tools.blueprint_lab.decompose /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --cell-size 16 --json-output .codex/tests/blueprint-decomposition-summary.json --markdown-output .codex/tests/blueprint-decomposition-report.md
+python3 -m tools.blueprint_lab.decompose /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-decomposition-summary.json --markdown-output .codex/artifacts/blueprint-decomposition-report.md
 ```
 
 Extract template candidates:
 
 ```bash
-python3 -m tools.blueprint_lab.templates /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --cell-size 16 --json-output .codex/tests/blueprint-template-summary.json --markdown-output .codex/tests/blueprint-template-report.md
+python3 -m tools.blueprint_lab.templates /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-template-summary.json --markdown-output .codex/artifacts/blueprint-template-report.md
 ```
 
 Map templates to data.raw recipe knowledge:
 
 ```bash
-python3 -m tools.blueprint_lab.template_knowledge /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --top 8 --cell-size 16 --json-output .codex/tests/blueprint-template-knowledge-summary.json --markdown-output .codex/tests/blueprint-template-knowledge-report.md
+python3 -m tools.blueprint_lab.template_knowledge /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-template-knowledge-summary.json --markdown-output .codex/artifacts/blueprint-template-knowledge-report.md
 ```
 
 If no `--data-raw-json` is provided, the command still reports template roles
@@ -687,7 +686,7 @@ python3 -m tools.blueprint_lab.template_knowledge /mnt/d/Desktop/游戏/异星�
 Plan a production DAG seed from learned templates:
 
 ```bash
-python3 -m tools.blueprint_lab.production_dag /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-rate-per-minute 600 --top 8 --cell-size 16 --json-output .codex/tests/blueprint-production-dag-summary.json --markdown-output .codex/tests/blueprint-production-dag-report.md
+python3 -m tools.blueprint_lab.production_dag /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-rate-per-minute 600 --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-production-dag-summary.json --markdown-output .codex/artifacts/blueprint-production-dag-report.md
 ```
 
 Use a full-belt target instead of a hand-written rate:
@@ -699,51 +698,51 @@ python3 -m tools.blueprint_lab.production_dag /mnt/d/Desktop/游戏/异星工厂
 Plan a rectangular layout from learned templates:
 
 ```bash
-python3 -m tools.blueprint_lab.layout_plan /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-belt turbo-transport-belt --top 8 --cell-size 16 --json-output .codex/tests/blueprint-layout-plan-summary.json --markdown-output .codex/tests/blueprint-layout-plan-report.md
+python3 -m tools.blueprint_lab.layout_plan /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-belt turbo-transport-belt --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-layout-plan-summary.json --markdown-output .codex/artifacts/blueprint-layout-plan-report.md
 ```
 
 Materialize a blueprint skeleton from learned templates:
 
 ```bash
-python3 -m tools.blueprint_lab.materialize /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-belt turbo-transport-belt --top 8 --cell-size 16 --connect-boundaries --output .codex/tests/blueprint-connected-iron-ore.txt --json-output .codex/tests/blueprint-connected-iron-ore-summary.json --markdown-output .codex/tests/blueprint-connected-iron-ore-report.md
+python3 -m tools.blueprint_lab.materialize /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /path/to/data-raw.json --target-item iron-ore --target-belt turbo-transport-belt --top 8 --cell-size 16 --connect-boundaries --output .codex/artifacts/blueprint-connected-iron-ore.txt --json-output .codex/artifacts/blueprint-connected-iron-ore-summary.json --markdown-output .codex/artifacts/blueprint-connected-iron-ore-report.md
 ```
 
 Validate one generated blueprint with a real Factorio runtime scenario:
 
 ```bash
-python3 -m tools.blueprint_lab.factorio_validate --blueprint .codex/tests/blueprint-connected-iron-ore.txt --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/tests/blueprint-lab-factorio-validation.log
+python3 -m tools.blueprint_lab.factorio_validate --blueprint .codex/artifacts/blueprint-connected-iron-ore.txt --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/artifacts/blueprint-lab-factorio-validation.log
 ```
 
 Run a longer sustained left-boundary input probe:
 
 ```bash
-python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_recycle_merge_sustained_2400 --blueprint .codex/tests/blueprint-routed-iron-ore-2x-turbo-belt.txt --user-data-dir .codex/tests/factorio-probe-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/tests/blueprint-lab-factorio-recycle-merge-sustained-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300
+python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_recycle_merge_sustained_2400 --blueprint .codex/artifacts/blueprint-routed-iron-ore-2x-turbo-belt.txt --user-data-dir .codex/artifacts/factorio-probe-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/artifacts/blueprint-lab-factorio-recycle-merge-sustained-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300
 ```
 
 Run a right-boundary throughput-window probe:
 
 ```bash
-python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_recycle_merge_throughput_2400 --blueprint .codex/tests/blueprint-routed-iron-ore-2x-turbo-belt.txt --user-data-dir .codex/tests/factorio-probe-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/tests/blueprint-lab-factorio-recycle-merge-throughput-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300 --throughput-window-ticks 300 --throughput-target-item iron-ore
+python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_recycle_merge_throughput_2400 --blueprint .codex/artifacts/blueprint-routed-iron-ore-2x-turbo-belt.txt --user-data-dir .codex/artifacts/factorio-probe-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/artifacts/blueprint-lab-factorio-recycle-merge-throughput-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300 --throughput-window-ticks 300 --throughput-target-item iron-ore
 ```
 
 Build the current stage-4 strategy report from the local corpus:
 
 ```bash
-python3 -m tools.blueprint_lab.stage4_report /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --json-output .codex/tests/blueprint-stage4-report-summary.json --markdown-output .codex/tests/blueprint-stage4-report.md
+python3 -m tools.blueprint_lab.stage4_report /mnt/d/Desktop/游戏/异星工厂/蓝图 --top 8 --json-output .codex/artifacts/blueprint-stage4-report-summary.json --markdown-output .codex/artifacts/blueprint-stage4-report.md
 ```
 
 Add current game prototype knowledge to the same report so it can list resolved
 production module candidates:
 
 ```bash
-python3 -m tools.blueprint_lab.stage4_report /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /mnt/d/project/factorio/metatorio-calc/assets/data-raw-dump.json --top 8 --cell-size 16 --json-output .codex/tests/blueprint-stage4-report-with-data-summary.json --markdown-output .codex/tests/blueprint-stage4-report-with-data.md
+python3 -m tools.blueprint_lab.stage4_report /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /mnt/d/project/factorio/metatorio-calc/assets/data-raw-dump.json --top 8 --cell-size 16 --json-output .codex/artifacts/blueprint-stage4-report-with-data-summary.json --markdown-output .codex/artifacts/blueprint-stage4-report-with-data.md
 ```
 
 Generate a stage-4 package that writes the strategy report, materialized
 blueprint, and combined audit summary from the same inputs:
 
 ```bash
-python3 -m tools.blueprint_lab.stage4_generate /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /mnt/d/project/factorio/metatorio-calc/assets/data-raw-dump.json --target-item iron-ore --target-belt turbo-transport-belt --target-belt-count 2 --top 8 --cell-size 16 --max-depth 4 --max-columns 12 --compress-output-boundary --max-output-expansions-per-machine 6 --blueprint-output .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo.txt --summary-output .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo-summary.json --markdown-output .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo.md --stage4-json-output .codex/tests/blueprint-stage4-generate-stage4-summary.json --stage4-markdown-output .codex/tests/blueprint-stage4-generate-stage4.md --materialize-json-output .codex/tests/blueprint-stage4-generate-materialized-summary.json --materialize-markdown-output .codex/tests/blueprint-stage4-generate-materialized.md
+python3 -m tools.blueprint_lab.stage4_generate /mnt/d/Desktop/游戏/异星工厂/蓝图 --data-raw-json /mnt/d/project/factorio/metatorio-calc/assets/data-raw-dump.json --target-item iron-ore --target-belt turbo-transport-belt --target-belt-count 2 --top 8 --cell-size 16 --max-depth 4 --max-columns 12 --compress-output-boundary --max-output-expansions-per-machine 6 --blueprint-output .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo.txt --summary-output .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo-summary.json --markdown-output .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo.md --stage4-json-output .codex/artifacts/blueprint-stage4-generate-stage4-summary.json --stage4-markdown-output .codex/artifacts/blueprint-stage4-generate-stage4.md --materialize-json-output .codex/artifacts/blueprint-stage4-generate-materialized-summary.json --materialize-markdown-output .codex/artifacts/blueprint-stage4-generate-materialized.md
 ```
 
 This package command is a coordination entry point, not a proof that strict
@@ -760,13 +759,13 @@ Runtime-check that package output with sustained input and right-boundary
 throughput measurement:
 
 ```bash
-python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_stage4_generate_iron_ore_2x_turbo_2400 --blueprint .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo.txt --user-data-dir .codex/tests/factorio-probe-stage4-generate-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/tests/blueprint-lab-stage4-generate-iron-ore-2x-turbo-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300 --throughput-window-ticks 300 --throughput-target-item iron-ore
+python3 -m tools.blueprint_lab.factorio_validate --scenario-name blueprint_lab_validation_stage4_generate_iron_ore_2x_turbo_2400 --blueprint .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo.txt --user-data-dir .codex/artifacts/factorio-probe-stage4-generate-write-data --mod-directory /mnt/c/Users/MLJ/AppData/Roaming/Factorio/mods --console-log .codex/artifacts/blueprint-lab-stage4-generate-iron-ore-2x-turbo-2400.log --until-tick 2400 --timeout-seconds 120 --input-probe left --runtime-audit-wait-ticks 2400 --sustained-input-interval-ticks 300 --throughput-window-ticks 300 --throughput-target-item iron-ore
 ```
 
 Parse a Factorio validation log into a reusable runtime proof report:
 
 ```bash
-python3 -m tools.blueprint_lab.runtime_proof .codex/tests/factorio-probe-2x3-selector-fixed-write-data/factorio-current.log --target-item iron-ore --target-rate-per-minute 7200 --json-output .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.json --markdown-output .codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.md
+python3 -m tools.blueprint_lab.runtime_proof .codex/artifacts/factorio-probe-2x3-selector-fixed-write-data/factorio-current.log --target-item iron-ore --target-rate-per-minute 7200 --json-output .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.json --markdown-output .codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.md
 ```
 
 The proof report parses each `right_boundary_throughput_window`, its matching
@@ -787,7 +786,7 @@ Factorio log-open marker and may not contain the validation markers.
 Compare generated candidates with offline audits and runtime proof:
 
 ```bash
-python3 -m tools.blueprint_lab.stage4_compare --candidate compact-2x3-overprovisioned=.codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-materialized-summary.json,.codex/tests/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.json --candidate exact-3x2-near-miss=.codex/tests/blueprint-routed-iron-ore-2x-turbo-belt-forced-3x2-auto-corridor-summary.json,.codex/tests/blueprint-forced-3x2-long-4800-runtime-proof.json --candidate exact-compressor-unresolved=.codex/tests/blueprint-routed-iron-ore-2x-turbo-belt-compressed-boundary-forced-c2-summary.json --json-output .codex/tests/blueprint-stage4-candidate-comparison-near-miss.json --markdown-output .codex/tests/blueprint-stage4-candidate-comparison-near-miss.md
+python3 -m tools.blueprint_lab.stage4_compare --candidate compact-2x3-overprovisioned=.codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-materialized-summary.json,.codex/artifacts/blueprint-stage4-generate-iron-ore-2x-turbo-selector-fixed-runtime-proof.json --candidate exact-3x2-near-miss=.codex/artifacts/blueprint-routed-iron-ore-2x-turbo-belt-forced-3x2-auto-corridor-summary.json,.codex/artifacts/blueprint-forced-3x2-long-4800-runtime-proof.json --candidate exact-compressor-unresolved=.codex/artifacts/blueprint-routed-iron-ore-2x-turbo-belt-compressed-boundary-forced-c2-summary.json --json-output .codex/artifacts/blueprint-stage4-candidate-comparison-near-miss.json --markdown-output .codex/artifacts/blueprint-stage4-candidate-comparison-near-miss.md
 ```
 
 The comparison intentionally recommends the runtime-proven over-provisioned
@@ -805,13 +804,7 @@ and zero invalid output inserters.
 Generate the current seed blueprint:
 
 ```bash
-python3 -m tools.blueprint_lab.generate iron-plate-seed --furnace-pairs 8 --output .codex/tests/iron-plate-blackbox-seed.txt
-```
-
-Run the regression guard:
-
-```bash
-python3 tests/verify_blueprint_lab.py
+python3 -m tools.blueprint_lab.generate iron-plate-seed --furnace-pairs 8 --output .codex/artifacts/iron-plate-blackbox-seed.txt
 ```
 
 ## Official References

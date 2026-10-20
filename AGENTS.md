@@ -13,8 +13,8 @@ mlj_factorio_mods/
 ├── pack_mods.py                # discovers <mod>/src/info.json and packs all mods
 ├── publish_mods.py             # explicit Mod Portal release script; never called by pack_mods.py
 ├── ModZips/                    # packaged artifacts only; do not edit as source
-├── tests/                      # long-lived regression guards, when present
 ├── tools/blueprint_lab/        # offline blueprint analysis/generation tooling
+├── tools/update_factorio_mods.py # parallel local Mod Portal updater
 ├── references/mods/            # local third-party reference mods; ignored, read-only
 ├── DynamicInventory/           # runtime/settings inventory resizing mod
 ├── expend-toolbar/             # runtime/data/settings custom toolbar mod
@@ -31,6 +31,7 @@ mlj_factorio_mods/
 | Pack or validate all mods | `pack_mods.py` | Source of truth for discovery, ignored dirs, entrypoint names, zip naming, and opening `ModZips/` |
 | Publish releases to Mod Portal | `publish_mods.py` | Explicit release-only tool; compares local `src/info.json` versions with Mod Portal releases and uploads only with `--execute` |
 | Offline blueprint analysis/generation | `tools/blueprint_lab/` | Decode/re-encode blueprint strings, scan local blueprint corpora, record layout metrics, and generate seed blueprints outside any mod package |
+| Update locally installed mods | `tools/update_factorio_mods.py` | Closed-game utility that selects current-version-compatible releases, downloads in parallel, verifies packages, and removes superseded zips |
 | Third-party reference mods | `references/mods/` | Local read-only reference code; ignored by Git and not a package input |
 | Runtime inventory logic | `DynamicInventory/` | Runtime/settings mod; no `data.lua` |
 | Custom toolbar logic | `expend-toolbar/` | Runtime/data/settings mod; compact runtime modules live directly under `src/` as `names.lua`, `stock.lua`, `panel.lua`, and `runtime.lua` |
@@ -132,17 +133,14 @@ copy the contents into the archive root.
 - Mod changelogs are runtime package files and must live at
   `<mod>/src/changelog.txt`. Do not keep or add root-level `<mod>/changelog.txt`
   fallbacks; if a mod does not satisfy the layout, fix the mod layout.
-- Long-lived regression tests belong under the repository root `tests/`, grouped
-  by domain or mod name. Do not place test files inside any mod `src/` tree.
+- This workspace does not maintain test files or test directories. Use focused source/diff review and explicitly authorized packaging or build checks instead.
 - Offline repository tools belong under `tools/`. They are not Factorio runtime
   mod files and must not be copied into any `<mod>/src/` tree.
 - Third-party reference mods belong under `references/mods/`. Keep them out of
   Git and do not treat them as package inputs, authored source, or build
   dependencies unless a future task explicitly promotes a specific file into an
   owned mod.
-- One-off investigation scripts are temporary. Put them under `.codex/` while
-  working, or remove them before handoff if they are not useful regression
-  guards.
+- One-off investigation scripts are temporary. Put them under `.codex/` while working, then archive or remove them before handoff; do not promote them into a test suite.
 - Bilingual content is normal in docs, locale, and some comments; preserve
   meaning when touching mixed Chinese/English text.
 - In WSL, `pack_mods.py` should open `ModZips/` with Windows Explorer through
@@ -152,12 +150,9 @@ copy the contents into the archive root.
   a zip exists, skip folder deployment for that mod. If no zip exists, copy the
   unpacked `{info.name}_{info.version}/` folder for the current package.
 - Mod Portal publishing is a separate explicit release action. Do not call
-  `publish_mods.py` from `pack_mods.py`, tests, automatic packaging, or local
-  debug deployment.
-- `publish_mods.py` defaults to dry-run. Real uploads require explicit
-  `--execute` plus `FACTORIO_MOD_PORTAL_TOKEN` in the environment.
-- Never commit Factorio API keys, bearer tokens, `.env` files, or publish logs
-  that include credentials.
+  `publish_mods.py` from `pack_mods.py`, automatic packaging, or local debug deployment.
+- `publish_mods.py` defaults to dry-run. Real uploads require explicit `--execute` plus a token from `FACTORIO_MOD_PORTAL_TOKEN` or the ignored local `publish_mods.config.json`; the environment variable takes precedence.
+- Never commit Factorio API keys, bearer tokens, `.env` files, `publish_mods.config.json`, or publish logs that include credentials. Keep `publish_mods.config.example.json` token-free.
 - First-time Mod Portal creation must be explicit with `--create`; otherwise a
   missing remote mod is an error, not an automatic publish.
 - Before running a real `publish_mods.py --execute`, verify that the matching
@@ -170,8 +165,7 @@ copy the contents into the archive root.
   `data` and prototype work belong in `data*.lua`.
 - Do not edit `ModZips/`, `obj/`, or `__pycache__/` as source; they are outputs
   or caches.
-- Do not keep tests under `<mod>/tests/` or `<mod>/src/tests/`; use root
-  `tests/` for durable regression checks so packaging output stays clean.
+- Do not add test files or test directories at the repository root or inside any mod tree.
 - Do not move `info.json` out of `src/`; the packer will stop discovering that
   mod.
 - Do not assume README commands are backed by manifests in this checkout; verify
@@ -181,9 +175,6 @@ copy the contents into the archive root.
 ## COMMANDS
 
 ```bash
-python3 tests/verify_blueprint_lab.py
-python3 tests/verify_pack_mods_ignores_non_runtime_files.py
-python3 tests/verify_publish_mods.py
 python3 pack_mods.py
 ```
 
@@ -202,17 +193,13 @@ python3 pack_mods.py
 
 ## MOD PORTAL RELEASES
 
-- Run `python3 publish_mods.py --dry-run` to compare local mod versions with
-  the Mod Portal without uploading.
-- Run `python3 publish_mods.py --mod <info.name> --dry-run` to inspect a single
-  mod before release.
-- Only run `FACTORIO_MOD_PORTAL_TOKEN=... python3 publish_mods.py --mod <info.name> --execute`
-  when the user explicitly asks to publish that mod.
+- Run `python3 publish_mods.py --dry-run` to compare local mod versions with the Mod Portal without uploading.
+- Run `python3 publish_mods.py --mod <info.name> --dry-run` to inspect a single mod before release.
+- Only run `python3 publish_mods.py --mod <info.name> --execute` when the user explicitly asks to publish that mod and a token is available through the environment or ignored local config.
 - Use `--create` only for first-time Mod Portal publication of a missing mod.
-- `publish_mods.py` does not build zips. Run `python3 pack_mods.py` first when a
-  fresh archive is needed, then confirm the expected `ModZips/` artifact exists.
-- `--require-clean` is available when the release should fail on any dirty Git
-  worktree state; without it, `--execute` prints dirty paths as a warning.
+- `publish_mods.py` does not build zips. Run `python3 pack_mods.py` first when a fresh archive is needed, then confirm the expected `ModZips/` artifact exists.
+- `--config-file` can select another local JSON config; never point it at a tracked credential file.
+- `--require-clean` is available when the release should fail on any dirty Git worktree state; without it, `--execute` prints dirty paths as a warning.
 
 ## GIT PRACTICES
 
@@ -252,9 +239,6 @@ python3 pack_mods.py
 - `pack_mods.py` ignores `.git`, `.idea`, `.vscode`, `.vs`, `__pycache__`,
   `bin`, `obj`, `tests`, `references`, `AGENTS.md`, `README.md`, plus `.zip`
   and `.psd` files.
-- There is no repo-wide CI workflow in this checkout. Use the root `tests/`
-  guards plus `python3 pack_mods.py` as the baseline validation unless a touched
-  mod adds another dedicated local check. Release-tool changes should also run
-  `python3 tests/verify_publish_mods.py`.
+- There is no repo-wide CI or test suite in this checkout. Use focused source/diff review and `python3 pack_mods.py` when packaging verification is explicitly required.
 - If a change may affect save compatibility, migration behavior, event legality,
   or Factorio API usage, re-check the official Factorio docs before editing.

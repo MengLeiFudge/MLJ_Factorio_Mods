@@ -1557,7 +1557,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mod-directory", type=Path)
     parser.add_argument("--scenario-name", default=DEFAULT_SCENARIO_NAME)
     parser.add_argument("--blueprint", type=Path, required=True)
-    parser.add_argument("--console-log", type=Path, default=Path(".codex/tests/blueprint-lab-factorio-validation.log"))
+    parser.add_argument("--console-log", type=Path, default=Path(".codex/artifacts/blueprint-lab-factorio-validation.log"))
     parser.add_argument("--until-tick", type=int, default=2)
     parser.add_argument("--timeout-seconds", type=float, default=45)
     parser.add_argument("--input-probe", choices=["left", "pickup", "both"], default="both")
